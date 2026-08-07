@@ -15,6 +15,10 @@
  *                                                                         *
  *   Copyright (C) 2015 Tomas Vanek                                        *
  *   vanekt@fbl.cz                                                         *
+ *                                                                        *
+ *   Copyright (C) 2026 Vladimir Ch                                        *
+ *   ut2or1 at github.com                                                  *
+ 
  ***************************************************************************/
 
 #ifdef HAVE_CONFIG_H
@@ -189,6 +193,7 @@
 #define KINETIS_K_SDID_K53		 0x00000170
 #define KINETIS_K_SDID_K60_M100  0x00000140
 #define KINETIS_K_SDID_K60_M150  0x000001C0
+#define KINETIS_K_SDID_K61       0x000001A0
 #define KINETIS_K_SDID_K70_M150  0x000001D0
 
 #define KINETIS_K_REVID_MASK	0x0000F000
@@ -375,7 +380,7 @@ static const struct kinetis_type kinetis_types_old[] = {
 
 	{ KINETIS_K_SDID_K60_M100, "MK60D%s10" },
 	{ KINETIS_K_SDID_K60_M150, "MK60F%s15" },
-
+    { KINETIS_K_SDID_K61,      "MK61F%s15" },
 	{ KINETIS_K_SDID_K70_M150, "MK70F%s15" },
 };
 
@@ -2369,6 +2374,7 @@ static int kinetis_probe_chip(struct kinetis_chip *k_chip)
 			break;
 		case KINETIS_K_SDID_K10_M120:
 		case KINETIS_K_SDID_K20_M120:
+		case KINETIS_K_SDID_K61:
 		case KINETIS_K_SDID_K60_M150:
 		case KINETIS_K_SDID_K70_M150:
 			/* 4kB sectors */
