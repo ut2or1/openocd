@@ -20,7 +20,7 @@
 
 /* constants */
 #define MQX_THREAD_NAME_LENGTH			(255)
-#define MQX_KERNEL_OFFSET_TDLIST		(0x0108)
+#define MQX_KERNEL_OFFSET_TDLIST		(0x0130)
 #define MQX_KERNEL_OFFSET_SYSTEM_TASK	(0x0050)
 #define MQX_KERNEL_OFFSET_ACTIVE_TASK	(0x001C)
 #define MQX_KERNEL_OFFSET_CAPABILITY	(0x0000)
@@ -73,6 +73,11 @@ static const struct mqx_state mqx_states[] = {
 	{ 0x0229, "TASK_QUEUE_BLOCKED" },
 	{ 0x042B, "LWSEM_BLOCKED" },
 	{ 0x042D, "LWEVENT_BLOCKED" },
+	{ 0x0441, "TTQ_BLOCKED" },
+	{ 0x0443, "JOIN_BLOCKED" },
+	{ 0x0445, "RWLOCK_READ_BLOCKED" },
+	{ 0x0447, "RWLOCK_WRITE_BLOCKED" },
+	{ 0x0449, "SIGNAL_WAIT_BLOCKED" },
 };
 
 static const char * const mqx_symbol_list[] = {
