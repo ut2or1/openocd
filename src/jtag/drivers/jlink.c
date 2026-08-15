@@ -47,6 +47,9 @@ static bool use_usb_address;
 static enum jaylink_target_interface iface = JAYLINK_TIF_JTAG;
 static bool trace_enabled;
 
+static bool use_remote_ip;
+static uint32_t remote_ip;
+
 #define JLINK_MAX_SPEED			12000
 #define JLINK_TAP_BUFFER_SIZE	2048
 
@@ -542,9 +545,17 @@ static bool jlink_usb_location_equal(struct jaylink_device *dev)
 
 static int jlink_open_device(uint32_t ifaces, bool *found_device)
 {
-	int ret = jaylink_discovery_scan(jayctx, ifaces);
+	int ret;
+
+	if (use_remote_ip) {
+		LOG_DEBUG("Discovering J-Link by remote IP address");
+		ret = jaylink_discovery_by_ip(jayctx, remote_ip);
+	} else {
+		ret = jaylink_discovery_scan(jayctx, ifaces);
+	}
+
 	if (ret != JAYLINK_OK) {
-		LOG_ERROR("jaylink_discovery_scan() failed: %s", jaylink_strerror(ret));
+		LOG_ERROR("jaylink discovery failed: %s", jaylink_strerror(ret));
 		jaylink_exit(jayctx);
 		return ERROR_JTAG_INIT_FAILED;
 	}
@@ -695,14 +706,21 @@ static int jlink_init(void)
 		use_usb_address = false;
 
 	bool found_device;
-	ret = jlink_open_device(JAYLINK_HIF_USB, &found_device);
-	if (ret != ERROR_OK)
-		return ret;
 
-	if (!found_device && adapter_get_required_serial()) {
+	if (use_remote_ip) {
 		ret = jlink_open_device(JAYLINK_HIF_TCP, &found_device);
 		if (ret != ERROR_OK)
 			return ret;
+	} else {
+		ret = jlink_open_device(JAYLINK_HIF_USB, &found_device);
+		if (ret != ERROR_OK)
+			return ret;
+
+		if (!found_device && adapter_get_required_serial()) {
+			ret = jlink_open_device(JAYLINK_HIF_TCP, &found_device);
+			if (ret != ERROR_OK)
+				return ret;
+		}
 	}
 
 	if (!found_device) {
@@ -995,6 +1013,35 @@ COMMAND_HANDLER(jlink_usb_command)
 
 	usb_address = tmp;
 	use_usb_address = true;
+
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(jlink_handle_remote_command)
+{
+	if (CMD_ARGC != 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	uint8_t ip[4];
+	int pos;
+
+	if (!string_to_ip(CMD_ARGV[0], ip, &pos) || CMD_ARGV[0][pos] != '\0') {
+		command_print(CMD, "Invalid IPv4 address: %s", CMD_ARGV[0]);
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+
+	/*
+	 * Convert IP to uint32_t.
+	 * NOTE: Ensure this byte order matches the expectation of your
+	 * jaylink_discovery_by_ip() implementation.
+	 * The following constructs network byte order (big-endian).
+	 */
+	remote_ip = ((uint32_t)ip[0] << 24) |
+	            ((uint32_t)ip[1] << 16) |
+	            ((uint32_t)ip[2] << 8)  |
+	            ((uint32_t)ip[3]);
+
+	use_remote_ip = true;
 
 	return ERROR_OK;
 }
@@ -1916,6 +1963,13 @@ static const struct command_registration jlink_subcommand_handlers[] = {
 		.mode = COMMAND_CONFIG,
 		.help = "set the USB address of the device that should be used",
 		.usage = "<0-3>"
+	},
+	{
+		.name = "remote",
+		.handler = &jlink_handle_remote_command,
+		.mode = COMMAND_CONFIG,
+		.help = "set the IP address of the remote J-Link device to connect to via TCP",
+		.usage = "<ipv4_address>"
 	},
 	{
 		.name = "config",
