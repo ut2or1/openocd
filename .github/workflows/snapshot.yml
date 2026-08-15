@@ -65,9 +65,9 @@ jobs:
           LIBJAYLINK_VER: 0.4.1
         run: |
           mkdir -p $DL_DIR && cd $DL_DIR
-          wget https://github.com/ut2or1/libjaylink/archive/refs/tags/${LIBJAYLINK_VER}.tar.gz
-          tar -xzf ${LIBJAYLINK_VER}.tar.gz
-          cd ${LIBJAYLINK_VER}
+          wget https://github.com/ut2or1/libjaylink/archive/refs/tags/0.4.1.tar.gz
+          tar -xzf libjaylink-${LIBJAYLINK_VER}.tar.gz
+          cd libjaylink-${LIBJAYLINK_VER}
           ./autogen.sh
           echo "LIBJAYLINK_SRC=$PWD" >> $GITHUB_ENV
       - name: Prepare jimtcl
