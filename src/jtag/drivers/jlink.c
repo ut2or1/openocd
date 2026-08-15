@@ -1017,35 +1017,6 @@ COMMAND_HANDLER(jlink_usb_command)
 	return ERROR_OK;
 }
 
-COMMAND_HANDLER(jlink_handle_remote_command)
-{
-	if (CMD_ARGC != 1)
-		return ERROR_COMMAND_SYNTAX_ERROR;
-
-	uint8_t ip[4];
-	int pos;
-
-	if (!string_to_ip(CMD_ARGV[0], ip, &pos) || CMD_ARGV[0][pos] != '\0') {
-		command_print(CMD, "Invalid IPv4 address: %s", CMD_ARGV[0]);
-		return ERROR_COMMAND_ARGUMENT_INVALID;
-	}
-
-	/*
-	 * Convert IP to uint32_t.
-	 * NOTE: Ensure this byte order matches the expectation of your
-	 * jaylink_discovery_by_ip() implementation.
-	 * The following constructs network byte order (big-endian).
-	 */
-	remote_ip = ((uint32_t)ip[0] << 24) |
-	            ((uint32_t)ip[1] << 16) |
-	            ((uint32_t)ip[2] << 8)  |
-	            ((uint32_t)ip[3]);
-
-	use_remote_ip = true;
-
-	return ERROR_OK;
-}
-
 COMMAND_HANDLER(jlink_handle_hwstatus_command)
 {
 	int ret;
@@ -1859,6 +1830,35 @@ COMMAND_HANDLER(jlink_handle_emucom_read_command)
 
 	command_print(CMD, "%s", buf + length);
 	free(buf);
+
+	return ERROR_OK;
+}
+
+COMMAND_HANDLER(jlink_handle_remote_command)
+{
+	if (CMD_ARGC != 1)
+		return ERROR_COMMAND_SYNTAX_ERROR;
+
+	uint8_t ip[4];
+	int pos;
+
+	if (!string_to_ip(CMD_ARGV[0], ip, &pos)) {
+		command_print(CMD, "Invalid IPv4 address: %s", CMD_ARGV[0]);
+		return ERROR_COMMAND_ARGUMENT_INVALID;
+	}
+
+	/*
+	 * Convert IP to uint32_t.
+	 * NOTE: Ensure this byte order matches the expectation of your
+	 * jaylink_discovery_by_ip() implementation.
+	 * The following constructs network byte order (big-endian).
+	 */
+	remote_ip = ((uint32_t)ip[0] << 24) |
+	            ((uint32_t)ip[1] << 16) |
+	            ((uint32_t)ip[2] << 8)  |
+	            ((uint32_t)ip[3]);
+
+	use_remote_ip = true;
 
 	return ERROR_OK;
 }
