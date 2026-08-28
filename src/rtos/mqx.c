@@ -20,7 +20,7 @@
 
 /* constants */
 #define MQX_THREAD_NAME_LENGTH			(255)
-#define MQX_KERNEL_OFFSET_TDLIST		(0x0108)
+#define MQX_KERNEL_OFFSET_TDLIST		mqx_kernel_offset_tdlist  //(0x0130)
 #define MQX_KERNEL_OFFSET_SYSTEM_TASK	(0x0050)
 #define MQX_KERNEL_OFFSET_ACTIVE_TASK	(0x001C)
 #define MQX_KERNEL_OFFSET_CAPABILITY	(0x0000)
@@ -73,6 +73,11 @@ static const struct mqx_state mqx_states[] = {
 	{ 0x0229, "TASK_QUEUE_BLOCKED" },
 	{ 0x042B, "LWSEM_BLOCKED" },
 	{ 0x042D, "LWEVENT_BLOCKED" },
+	{ 0x0441, "TTQ_BLOCKED" },
+	{ 0x0443, "JOIN_BLOCKED" },
+	{ 0x0445, "RWLOCK_READ_BLOCKED" },
+	{ 0x0447, "RWLOCK_WRITE_BLOCKED" },
+	{ 0x0449, "SIGNAL_WAIT_BLOCKED" },
 };
 
 static const char * const mqx_symbol_list[] = {
@@ -84,6 +89,8 @@ static const char * const mqx_symbol_list[] = {
 static const struct mqx_params mqx_params_list[] = {
 	{ "cortex_m", mqx_arch_cortexm, &rtos_mqx_arm_v7m_stacking },
 };
+
+static uint32_t mqx_kernel_offset_tdlist = 0x0130;
 
 /*
  * Perform simple address check to avoid bus fault.
@@ -239,6 +246,45 @@ static bool mqx_detect_rtos(
 	return false;
 }
 
+
+COMMAND_HANDLER(handle_mqx_kernel_tdlist_offset_command)
+{
+	if (CMD_ARGC != 1) {
+		return ERROR_COMMAND_SYNTAX_ERROR;
+	}
+
+	COMMAND_PARSE_NUMBER(u32, CMD_ARGV[0], mqx_kernel_offset_tdlist);
+
+	LOG_INFO("MQX: kernel TD_LIST offset set to 0x%" PRIx32,
+		mqx_kernel_offset_tdlist);
+
+	return ERROR_OK;
+}
+
+static const struct command_registration mqx_subcommand_handlers[] = {
+	{
+		.name = "kernel-tdlist-offset",
+		.handler = handle_mqx_kernel_tdlist_offset_command,
+		.mode = COMMAND_CONFIG,
+		.help = "Set the MQX kernel TD_LIST offset",
+		.usage = "<offset>",
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static const struct command_registration mqx_command_handlers[] = {
+	{
+		.name = "mqx",
+		.mode = COMMAND_CONFIG,
+		.help = "MQX RTOS configuration commands",
+		.usage = "",
+		.chain = mqx_subcommand_handlers,
+	},
+	COMMAND_REGISTRATION_DONE
+};
+
+static bool mqx_commands_registered;
+
 /*
  * API function, pass MQX extra info to context data
  */
@@ -246,6 +292,16 @@ static int mqx_create(
 	struct target *target
 )
 {
+	if (!mqx_commands_registered) {
+		extern struct command_context *global_cmd_ctx;
+
+		int retval = register_commands(global_cmd_ctx, NULL,
+			mqx_command_handlers);
+		if (retval != ERROR_OK)
+			return retval;
+
+		mqx_commands_registered = true;
+	}
 	/* check target name against supported architectures */
 	for (unsigned int i = 0; i < ARRAY_SIZE(mqx_params_list); i++) {
 		if (strcmp(mqx_params_list[i].target_name, target_type_name(target)) == 0) {
