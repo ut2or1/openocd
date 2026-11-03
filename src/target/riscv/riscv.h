@@ -132,8 +132,18 @@ struct reg_name_table {
 	char **reg_names;
 };
 
+enum riscv_priv_mode {
+	RISCV_MODE_M,
+	RISCV_MODE_S,
+	RISCV_MODE_U,
+	RISCV_MODE_VS,
+	RISCV_MODE_VU,
+	N_RISCV_MODE
+};
+
 struct riscv_mem_access_args {
 	target_addr_t address;
+	enum riscv_priv_mode mode;
 
 	const uint8_t *write_buffer;
 	uint8_t *read_buffer;
@@ -162,6 +172,19 @@ riscv_mem_access_is_write(const struct riscv_mem_access_args args)
 	assert(riscv_mem_access_is_valid(args));
 	return !args.read_buffer && args.write_buffer;
 }
+
+/**
+ * Architecture info for RISC-V algorithms. Required by
+ * riscv_start_algorithm() / riscv_wait_algorithm() so saved context can
+ * persist while the algorithm runs. Callers must set common_magic to
+ * RISCV_COMMON_MAGIC.
+ */
+struct riscv_algorithm {
+	unsigned int common_magic;
+	riscv_reg_t saved_gpr[32];
+	riscv_reg_t saved_pc;
+	riscv_reg_t saved_mstatus;
+};
 
 
 struct riscv_info {
@@ -366,18 +389,27 @@ struct riscv_info {
 	bool autofence;
 };
 
-enum riscv_priv_mode {
-	RISCV_MODE_M,
-	RISCV_MODE_S,
-	RISCV_MODE_U,
-	RISCV_MODE_VS,
-	RISCV_MODE_VU,
-	N_RISCV_MODE
-};
+static inline riscv_reg_t riscv_priv_mode_to_prv(enum riscv_priv_mode mode)
+{
+	switch (mode) {
+	case RISCV_MODE_M:
+		return PRV_M;
+	case RISCV_MODE_S:
+	case RISCV_MODE_VS:
+		return PRV_S;
+	case RISCV_MODE_U:
+	case RISCV_MODE_VU:
+		return PRV_U;
+	default:
+		assert(false);
+		return PRV_M;
+	}
+}
 
 struct riscv_private_config {
 	bool dcsr_ebreak_fields[N_RISCV_MODE];
 	bool dcsr_cetrig;
+	bool detect_misa;
 };
 
 static inline struct riscv_private_config
@@ -408,9 +440,6 @@ typedef struct {
 	unsigned int pa_ppn_shift[PG_MAX_LEVEL];
 	unsigned int pa_ppn_mask[PG_MAX_LEVEL];
 } virt2phys_info_t;
-
-bool riscv_virt2phys_mode_is_hw(const struct target *target);
-bool riscv_virt2phys_mode_is_sw(const struct target *target);
 
 /* Wall-clock timeout for a command/access. Settable via RISC-V Target commands.*/
 int riscv_get_command_timeout_sec(void);
@@ -456,6 +485,8 @@ int riscv_openocd_step(
 );
 
 /*** RISC-V Interface ***/
+
+int riscv_extension_enabled(struct target *target, char letter, bool *is_enabled);
 
 bool riscv_supports_extension(const struct target *target, char letter);
 

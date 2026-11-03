@@ -2622,8 +2622,13 @@ In SWD mode the TRST pin is not needed as a JTAG signal, so the driver drives
 it as a GPIO to provide SRST. TRST is pin 9 on both chips, but has a different
 GPIO number: GPIO5 on the CH347T and GPIO3 on the CH347F. Use
 @ref{adapter gpio, @command{adapter gpio srst}} to select a different GPIO or
-to change the polarity. SRST is not available in JTAG mode, where the pin
-carries TRST.
+to change the polarity. On the CH347T, SRST is not available in JTAG mode,
+where the pin carries TRST. On the CH347F, pin 8 is the JTAG interface
+system reset output. It is not shared with a GPIO.
+After the adapter powers up, pin 8 strongly drives low and holds a wired
+target in reset. JTAG initialization therefore always enables this output
+and then drives it high. SWD does not use this output. Pin 8 is active-low
+and push-pull.
 
 Not every GPIO can be used, because the GPIO's share their pins with the
 interface signals. Only GPIO3 to GPIO6 are free on the CH347T, and GPIO0 to
@@ -2636,7 +2641,8 @@ same pin, SRST gets disabled.
 The SRST GPIO follows the drive mode of @ref{reset_config,,@command{reset_config}}.
 The default is open drain, which the driver emulates by switching the pin to an
 input instead of driving it to the inactive level, so the reset line needs a
-pull-up. Use @command{reset_config srst_push_pull} if it has none.
+pull-up. Use @command{reset_config srst_push_pull} if it has none. This GPIO
+emulation is not used for the CH347F dedicated output on pin 8.
 
 @end deffn
 
@@ -7578,8 +7584,9 @@ command completes.
 @deffn {Command} {kinetis nvm_partition}
 For FlexNVM devices only (KxxDX, KxxFX and S32K1xx).
 Command shows or sets data flash or EEPROM backup size in kilobytes,
-sets two EEPROM blocks sizes in bytes and enables/disables loading
-of EEPROM contents to FlexRAM during reset.
+sets two EEPROM blocks sizes in bytes, enables/disables loading
+of EEPROM contents to FlexRAM during reset and, on S32K1xx devices with
+CSEc, sets the number of CSEc keys (0, 5, 10 or 20).
 
 For details see device reference manual, Flash Memory Module,
 Program Partition command.
@@ -7610,6 +7617,14 @@ only. Use @command{kinetis mdm mass_erase} to clear an existing partition. Set
 reset:
 @example
 kinetis nvm_partition eebkp 32 2048
+@end example
+
+Same with space for 20 CSEc keys. Once keys are allocated, mass erase
+is blocked until the CSEc debug authentication (CMD_DBG_CHAL, CMD_DBG_AUTH)
+has removed them. The authentication is derived from the MASTER_ECU_KEY,
+so load a MASTER_ECU_KEY to be able to erase the device again:
+@example
+kinetis nvm_partition eebkp 32 1024 1024 on 20
 @end example
 @end deffn
 
@@ -11975,6 +11990,15 @@ configure the @code{cetrig} in the dcsr register. Defaults to @option{on}.
 @end itemize
 @end itemize
 
+@itemize
+@item @code{-detect-misa} @option{off}|@option{on} -- determines whether OpenOCD
+should detect all supported misa extensions. Defaults to @option{on}.
+
+@itemize
+@item @code{cget} returns the currently configured state for @code{-detect-misa}.
+@end itemize
+@end itemize
+
 @subsection RISC-V Debug Configuration Commands
 
 @deffn {Command} {riscv dump_sample_buf} [base64]
@@ -12063,6 +12087,8 @@ dump_sample_buf}.
 Quickly read count words of the given size from address. This can be useful
 to read out a buffer that's memory-mapped to be accessed through a single
 address, or to sample a changing value in a memory-mapped device.
+
+The address is physical.
 @end deffn
 
 @deffn {Command} {riscv info}
@@ -12112,6 +12138,7 @@ read the respective entries). This is the default mode.
 (Virtual memory access will fail with an error if the hardware doesn't
 support the necessary functionality.)
 @item @option{off} - Virtual addresses are not translated (identity mapping is assumed).
+An access in this mode behaves exactly like an explicitly physical one.
 @end itemize
 Returns current translation mode if called without arguments.
 @end deffn
